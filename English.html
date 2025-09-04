@@ -41,12 +41,12 @@
     }
 
     #meaning {
-      font-size: 1.5em;
+      font-size: clamp(18px, 3vw, 24px);
       margin-bottom: 10px;
     }
 
     #inputDisplay {
-      font-size: 1.6em;
+      font-size: clamp(18px, 3vw, 26px);
       margin-bottom: 15px;
       min-height: 2em;
       letter-spacing: 0.1em;
@@ -61,11 +61,11 @@
     }
 
     .keyboard-row button {
-      font-size: 18px;
-      padding: 12px;
-      min-width: 8%;
-      max-width: 60px;
-      min-height: 50px;
+      font-size: clamp(16px, 3vw, 22px);
+      padding: clamp(10px, 1.5vw, 16px);
+      min-width: clamp(35px, 8vw, 60px);
+      max-width: clamp(50px, 12vw, 70px);
+      min-height: clamp(45px, 7vw, 60px);
       border-radius: 6px;
       border: none;
       background: #10b981;
@@ -73,13 +73,13 @@
       font-weight: bold;
       cursor: pointer;
       transition: 0.2s;
-      touch-action: manipulation; /* ダブルタップズーム防止 */
+      touch-action: manipulation;
       flex: 1 1 auto;
     }
 
     .keyboard-row button.special {
-      min-width: 25%;
-      max-width: 120px;
+      min-width: clamp(60px, 20vw, 120px);
+      max-width: clamp(100px, 25vw, 150px);
     }
 
     .keyboard-row button:active {
@@ -89,8 +89,8 @@
 
     #submitBtn {
       margin-top: 10px;
-      font-size: 18px;
-      padding: 12px 25px;
+      font-size: clamp(16px, 3vw, 22px);
+      padding: clamp(10px, 2vw, 16px) clamp(20px, 5vw, 25px);
       border: none;
       border-radius: 8px;
       background: #2563eb;
@@ -105,18 +105,18 @@
     }
 
     #result {
-      font-size: 1.3em;
+      font-size: clamp(16px, 3vw, 22px);
       min-height: 1.5em;
       font-weight: bold;
     }
 
     #score, #round {
-      font-size: 1em;
+      font-size: clamp(14px, 2.5vw, 18px);
       color: #555;
     }
 
     footer {
-      font-size: 0.9em;
+      font-size: clamp(12px, 2vw, 16px);
       color: #777;
       padding: 10px 0;
     }
@@ -141,41 +141,40 @@
 
   <script>
     const dictionary = {
-  "〜の上に": "above",
-  "海外へ": "abroad",
-  "欠席して": "absent",
-  "事故、偶然": "accident",
-  "〜を横切って": "across",
-  "演じる、行動する": "act",
-  "活動的な": "active",
-  "大人": "adult",
-  "怖がって": "afraid",
-  "再び、また": "again",
-  "〜に反対して、〜に対して": "against",
-  "〜前に": "ago",
-  "空気、雰囲気": "air",
-  "空港": "airport",
-  "警報を出す": "alarm",
-  "生きている": "alive",
-  "まったく、すべて(の)": "all",
-  "一人で": "alone",
-  "〜に沿って": "along",
-  "声を出して": "aloud",
-  "すでに": "already",
-  "〜もまた、さらに": "also",
-  "怒っている": "angry",
-  "別の、他の": "another",
-  "(?)何か、(not)何も(〜ない)、(yes)何でも": "anything",
-  "エプロン、前掛け": "apron",
-  "面積、地域": "area",
-  "〜の周りを、およそ": "around",
-  "到着する": "arrive",
-//B area
-  "(パンなどを)焼く": "bake",
-  "浴室、トイレ": "bathroom",
-  "海辺、浜辺": "beach",
-  "美しさ": "beauty",
-  "なぜならば、〜だから": "because"
+      "〜の上に": "above",
+      "海外へ": "abroad",
+      "欠席して": "absent",
+      "事故、偶然": "accident",
+      "〜を横切って": "across",
+      "演じる、行動する": "act",
+      "活動的な": "active",
+      "大人": "adult",
+      "怖がって": "afraid",
+      "再び、また": "again",
+      "〜に反対して、〜に対して": "against",
+      "〜前に": "ago",
+      "空気、雰囲気": "air",
+      "空港": "airport",
+      "警報を出す": "alarm",
+      "生きている": "alive",
+      "まったく、すべて(の)": "all",
+      "一人で": "alone",
+      "〜に沿って": "along",
+      "声を出して": "aloud",
+      "すでに": "already",
+      "〜もまた、さらに": "also",
+      "怒っている": "angry",
+      "別の、他の": "another",
+      "(?)何か、(not)何も(〜ない)、(yes)何でも": "anything",
+      "エプロン、前掛け": "apron",
+      "面積、地域": "area",
+      "〜の周りを、およそ": "around",
+      "到着する": "arrive",
+      "(パンなどを)焼く": "bake",
+      "浴室、トイレ": "bathroom",
+      "海辺、浜辺": "beach",
+      "美しさ": "beauty",
+      "なぜならば、〜だから": "because"
     };
 
     let words = Object.keys(dictionary);
@@ -221,7 +220,6 @@
         keyboardDiv.appendChild(rowDiv);
       });
 
-      // Special keys row
       const specialRow = document.createElement("div");
       specialRow.className = "keyboard-row";
 
