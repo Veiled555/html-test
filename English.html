@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>English Word Quiz</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: #f0f4f8;
+      color: #333;
+      justify-content: space-between;
+      text-align: center;
+      padding: env(safe-area-inset-top) 20px 20px 20px;
+    }
+
+    header {
+      background: #2563eb;
+      color: white;
+      padding: 15px 0;
+      font-size: 1.5em;
+      font-weight: bold;
+      border-bottom-left-radius: 12px;
+      border-bottom-right-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 15px;
+    }
+
+    #meaning {
+      font-size: 1.5em;
+      margin-bottom: 10px;
+    }
+
+    #inputDisplay {
+      font-size: 1.6em;
+      margin-bottom: 15px;
+      min-height: 2em;
+      letter-spacing: 0.1em;
+    }
+
+    .keyboard-row {
+      display: flex;
+      justify-content: center;
+      margin: 5px 0;
+      gap: 6px;
+    }
+
+    .keyboard-row button {
+      font-size: 20px;
+      padding: 14px;
+      min-width: 45px;
+      min-height: 50px;
+      border-radius: 6px;
+      border: none;
+      background: #10b981;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .keyboard-row button:active {
+      transform: translateY(2px);
+      background: #0d8a67;
+    }
+
+    #submitBtn {
+      margin-top: 10px;
+      font-size: 18px;
+      padding: 12px 25px;
+      border: none;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    #submitBtn:active {
+      background: #1e4fc4;
+    }
+
+    #result {
+      font-size: 1.3em;
+      min-height: 1.5em;
+      font-weight: bold;
+    }
+
+    #score, #round {
+      font-size: 1em;
+      color: #555;
+    }
+
+    footer {
+      font-size: 0.9em;
+      color: #777;
+      padding: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <header>English Word Quiz</header>
+
+  <main>
+    <p id="meaning">Meaning</p>
+    <div id="inputDisplay"></div>
+
+    <div id="keyboard"></div>
+    <button id="submitBtn" onclick="checkAnswer()">Submit</button>
+
+    <div id="result"></div>
+    <div id="score">Score: 0 / 0</div>
+    <div id="round">Round: 1</div>
+  </main>
+
+  <footer>© Your Name</footer>
+
+  <script>
+    const dictionary = {
+      "旅行": "journey",
+      "健康な": "healthy",
+      "勇気": "courage",
+      "図書館": "library",
+      "有名な": "famous",
+      "知識": "knowledge",
+      "自由": "freedom",
+      "歴史": "history",
+      "約束": "promise",
+      "天気": "weather",
+      "答え": "answer",
+      "自然": "nature",
+      "未来": "future",
+      "危険": "danger",
+      "幸せ": "happiness",
+      "強さ": "strength",
+      "音楽": "music",
+      "勉強": "study",
+      "先生": "teacher",
+      "家族": "family"
+    };
+
+    let words = Object.keys(dictionary);
+    let wordOrder = [];
+    let currentIndex = 0;
+    let currentWord = "";
+    let correctCount = 0;
+    let totalCount = 0;
+    let round = 1;
+    let userInput = "";
+
+    const keyboardLayout = [
+      "qwertyuiop",
+      "asdfghjkl",
+      "zxcvbnm",
+    ];
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function createKeyboard() {
+      const keyboardDiv = document.getElementById("keyboard");
+
+      keyboardLayout.forEach(row => {
+        const rowDiv = document.createElement("div");
+        rowDiv.className = "keyboard-row";
+
+        row.split("").forEach(key => {
+          const btn = document.createElement("button");
+          btn.textContent = key;
+          btn.onclick = () => {
+            userInput += key;
+            document.getElementById("inputDisplay").textContent = userInput;
+          };
+          rowDiv.appendChild(btn);
+        });
+
+        keyboardDiv.appendChild(rowDiv);
+      });
+
+      // Special keys row
+      const specialRow = document.createElement("div");
+      specialRow.className = "keyboard-row";
+
+      const spaceBtn = document.createElement("button");
+      spaceBtn.textContent = "␣";
+      spaceBtn.style.minWidth = "100px";
+      spaceBtn.onclick = () => {
+        userInput += " ";
+        document.getElementById("inputDisplay").textContent = userInput;
+      };
+      specialRow.appendChild(spaceBtn);
+
+      const backBtn = document.createElement("button");
+      backBtn.textContent = "⌫";
+      backBtn.style.minWidth = "70px";
+      backBtn.onclick = () => {
+        userInput = userInput.slice(0, -1);
+        document.getElementById("inputDisplay").textContent = userInput;
+      };
+      specialRow.appendChild(backBtn);
+
+      keyboardDiv.appendChild(specialRow);
+    }
+
+    function startNewRound() {
+      wordOrder = shuffle([...words]);
+      currentIndex = 0;
+      document.getElementById("round").textContent = `Round: ${round}`;
+    }
+
+    function nextWord() {
+      if (currentIndex >= wordOrder.length) {
+        document.getElementById("meaning").textContent = "🎉 All questions finished!";
+        document.getElementById("inputDisplay").textContent = "";
+        document.getElementById("result").textContent = "";
+        setTimeout(() => {
+          round++;
+          startNewRound();
+          nextWord();
+        }, 2000);
+        return;
+      }
+
+      currentWord = wordOrder[currentIndex];
+      document.getElementById("meaning").textContent = currentWord;
+      userInput = "";
+      document.getElementById("inputDisplay").textContent = "";
+      document.getElementById("result").textContent = "";
+      currentIndex++;
+    }
+
+    function checkAnswer() {
+      const resultDiv = document.getElementById("result");
+      totalCount++;
+
+      if (userInput.toLowerCase().trim() === dictionary[currentWord].toLowerCase()) {
+        resultDiv.textContent = "✅ Correct!";
+        resultDiv.style.color = "green";
+        correctCount++;
+      } else {
+        resultDiv.textContent = `❌ Wrong! Answer: ${dictionary[currentWord]}`;
+        resultDiv.style.color = "red";
+      }
+
+      document.getElementById("score").textContent = `Score: ${correctCount} / ${totalCount}`;
+      setTimeout(nextWord, 1500);
+    }
+
+    createKeyboard();
+    startNewRound();
+    nextWord();
+  </script>
+</body>
+</html>
