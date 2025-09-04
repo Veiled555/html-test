@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>English Word Quiz</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -56,13 +56,15 @@
       display: flex;
       justify-content: center;
       margin: 5px 0;
-      gap: 6px;
+      gap: 5px;
+      flex-wrap: wrap;
     }
 
     .keyboard-row button {
-      font-size: 20px;
-      padding: 14px;
-      min-width: 35px;
+      font-size: 18px;
+      padding: 12px;
+      min-width: 8%;
+      max-width: 60px;
       min-height: 50px;
       border-radius: 6px;
       border: none;
@@ -71,6 +73,13 @@
       font-weight: bold;
       cursor: pointer;
       transition: 0.2s;
+      touch-action: manipulation; /* ダブルタップズーム防止 */
+      flex: 1 1 auto;
+    }
+
+    .keyboard-row button.special {
+      min-width: 25%;
+      max-width: 120px;
     }
 
     .keyboard-row button:active {
@@ -203,7 +212,7 @@
 
       const spaceBtn = document.createElement("button");
       spaceBtn.textContent = "␣";
-      spaceBtn.style.minWidth = "100px";
+      spaceBtn.className = "special";
       spaceBtn.onclick = () => {
         userInput += " ";
         document.getElementById("inputDisplay").textContent = userInput;
@@ -212,7 +221,7 @@
 
       const backBtn = document.createElement("button");
       backBtn.textContent = "⌫";
-      backBtn.style.minWidth = "70px";
+      backBtn.className = "special";
       backBtn.onclick = () => {
         userInput = userInput.slice(0, -1);
         document.getElementById("inputDisplay").textContent = userInput;
