@@ -37,7 +37,7 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 15px;
+      gap: 10px;
     }
 
     #meaning {
@@ -47,7 +47,7 @@
 
     #inputDisplay {
       font-size: clamp(18px, 3vw, 26px);
-      margin-bottom: 15px;
+      margin-bottom: 10px;
       min-height: 2em;
       letter-spacing: 0.1em;
     }
@@ -87,22 +87,23 @@
       background: #0d8a67;
     }
 
-    #submitBtn {
-      margin-top: 10px;
+    #submitBtn, #hintBtn {
       font-size: clamp(16px, 3vw, 22px);
       padding: clamp(10px, 2vw, 16px) clamp(20px, 5vw, 25px);
       border: none;
       border-radius: 8px;
-      background: #2563eb;
-      color: white;
       font-weight: bold;
       cursor: pointer;
       transition: 0.2s;
+      margin: 5px;
     }
 
-    #submitBtn:active {
-      background: #1e4fc4;
-    }
+    #submitBtn { background: #2563eb; color: white; }
+    #submitBtn:active { background: #1e4fc4; }
+    #submitBtn:disabled { background: #cbd5e1; cursor: not-allowed; } /* 無効時にグレー表示 */
+    
+    #hintBtn { background: #f59e0b; color: white; }
+    #hintBtn:active { background: #b45309; }
 
     #result {
       font-size: clamp(16px, 3vw, 22px);
@@ -115,6 +116,27 @@
       color: #555;
     }
 
+    #tabs {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 3px;
+      margin-bottom: 5px;
+    }
+
+    #tabs button {
+      padding: 5px 8px;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 5px;
+      border: none;
+      background: #3b82f6;
+      color: white;
+      transition: 0.2s;
+    }
+
+    #tabs button:active { background: #1d4ed8; }
+
     footer {
       font-size: clamp(12px, 2vw, 16px);
       color: #777;
@@ -126,11 +148,15 @@
   <header>English Word Quiz</header>
 
   <main>
+    <div id="tabs"></div>
     <p id="meaning">Meaning</p>
     <div id="inputDisplay"></div>
 
     <div id="keyboard"></div>
-    <button id="submitBtn" onclick="checkAnswer()">Submit</button>
+    <div>
+      <button id="submitBtn" onclick="checkAnswer()" disabled>Submit</button>
+      <button id="hintBtn" onclick="showHint()">Hint</button>
+    </div>
 
     <div id="result"></div>
     <div id="score">Score: 0 / 0</div>
@@ -141,6 +167,7 @@
 
   <script>
     const dictionary = {
+
 //——————————————————————————————————————————————————————————
 // A area
 //——————————————————————————————————————————————————————————
@@ -598,112 +625,136 @@
     let totalCount = 0;
     let round = 1;
     let userInput = "";
+    let wrongWords = [];
+    let currentFilter = "ALL"; // ALL, A-Z, WRONG
 
-    const keyboardLayout = [
-      "qwertyuiop",
-      "asdfghjkl",
-      "zxcvbnm",
-    ];
+    const keyboardLayout = ["qwertyuiop","asdfghjkl","zxcvbnm"];
+    const submitBtn = document.getElementById("submitBtn");
 
-    function shuffle(array) {
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-      }
-      return array;
-    }
+    function shuffle(array){for(let i=array.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[array[i],array[j]]=[array[j],array[i]]}return array;}
 
-    function createKeyboard() {
-      const keyboardDiv = document.getElementById("keyboard");
-
-      keyboardLayout.forEach(row => {
-        const rowDiv = document.createElement("div");
-        rowDiv.className = "keyboard-row";
-
-        row.split("").forEach(key => {
-          const btn = document.createElement("button");
-          btn.textContent = key;
-          btn.onclick = () => {
-            userInput += key;
-            document.getElementById("inputDisplay").textContent = userInput;
-          };
-          rowDiv.appendChild(btn);
-        });
-
-        keyboardDiv.appendChild(rowDiv);
+    function createKeyboard(){
+      const keyboardDiv=document.getElementById("keyboard");
+      keyboardLayout.forEach(row=>{
+        const rowDiv=document.createElement("div");rowDiv.className="keyboard-row";
+        row.split("").forEach(key=>{
+          const btn=document.createElement("button");btn.textContent=key;btn.onclick=()=>{
+            userInput+=key;document.getElementById("inputDisplay").textContent=userInput;saveState();
+          };rowDiv.appendChild(btn);
+        });keyboardDiv.appendChild(rowDiv);
       });
-
-      const specialRow = document.createElement("div");
-      specialRow.className = "keyboard-row";
-
-      const spaceBtn = document.createElement("button");
-      spaceBtn.textContent = "␣";
-      spaceBtn.className = "special";
-      spaceBtn.onclick = () => {
-        userInput += " ";
-        document.getElementById("inputDisplay").textContent = userInput;
-      };
+      const specialRow=document.createElement("div");specialRow.className="keyboard-row";
+      const spaceBtn=document.createElement("button");spaceBtn.textContent="␣";spaceBtn.className="special";
+      spaceBtn.onclick=()=>{userInput+=" ";document.getElementById("inputDisplay").textContent=userInput;saveState();};
       specialRow.appendChild(spaceBtn);
-
-      const backBtn = document.createElement("button");
-      backBtn.textContent = "⌫";
-      backBtn.className = "special";
-      backBtn.onclick = () => {
-        userInput = userInput.slice(0, -1);
-        document.getElementById("inputDisplay").textContent = userInput;
-      };
+      const backBtn=document.createElement("button");backBtn.textContent="⌫";backBtn.className="special";
+      backBtn.onclick=()=>{userInput=userInput.slice(0,-1);document.getElementById("inputDisplay").textContent=userInput;saveState();};
       specialRow.appendChild(backBtn);
-
       keyboardDiv.appendChild(specialRow);
     }
 
-    function startNewRound() {
-      wordOrder = shuffle([...words]);
-      currentIndex = 0;
-      document.getElementById("round").textContent = `Round: ${round}`;
-    }
+    function startNewRound(){
+      let sourceWords = [];
+      if(currentFilter==="ALL") sourceWords=[...words];
+      else if(currentFilter==="WRONG") sourceWords=[...wrongWords];
+      else sourceWords = words.filter(w=>dictionary[w][0].toUpperCase()===currentFilter);
 
-    function nextWord() {
-      if (currentIndex >= wordOrder.length) {
-        document.getElementById("meaning").textContent = "🎉 All questions finished!";
-        document.getElementById("inputDisplay").textContent = "";
-        document.getElementById("result").textContent = "";
-        setTimeout(() => {
-          round++;
-          startNewRound();
-          nextWord();
-        }, 2000);
+      if(sourceWords.length===0){
+        currentWord="";
+        document.getElementById("meaning").textContent="";
+        document.getElementById("inputDisplay").textContent="";
+        submitBtn.disabled = true;
         return;
       }
 
-      currentWord = wordOrder[currentIndex];
-      document.getElementById("meaning").textContent = currentWord;
-      userInput = "";
-      document.getElementById("inputDisplay").textContent = "";
-      document.getElementById("result").textContent = "";
-      currentIndex++;
+      wordOrder=shuffle(sourceWords);
+      currentIndex=0;
+      document.getElementById("round").textContent=`Round: ${round}`;
+      nextWord();
+      saveState();
     }
 
-    function checkAnswer() {
-      const resultDiv = document.getElementById("result");
-      totalCount++;
-
-      if (userInput.toLowerCase().trim() === dictionary[currentWord].toLowerCase()) {
-        resultDiv.textContent = "✅ Correct!";
-        resultDiv.style.color = "green";
-        correctCount++;
-      } else {
-        resultDiv.textContent = `❌ Wrong! Answer: ${dictionary[currentWord]}`;
-        resultDiv.style.color = "red";
+    function nextWord(){
+      if(currentIndex>=wordOrder.length){
+        currentWord="";
+        document.getElementById("meaning").textContent="🎉 All questions finished!";
+        document.getElementById("inputDisplay").textContent="";
+        document.getElementById("result").textContent="";
+        submitBtn.disabled = true;
+        saveState();
+        setTimeout(()=>{round++; startNewRound();},2000);
+        return;
       }
-
-      document.getElementById("score").textContent = `Score: ${correctCount} / ${totalCount}`;
-      setTimeout(nextWord, 1500);
+      currentWord=wordOrder[currentIndex];currentIndex++;
+      document.getElementById("meaning").textContent=currentWord;
+      userInput="";document.getElementById("inputDisplay").textContent="";
+      document.getElementById("result").textContent="";
+      submitBtn.disabled = false;
+      saveState();
     }
 
-    createKeyboard();
-    startNewRound();
-    nextWord();
+    function checkAnswer(){
+      if(!currentWord) return; // 問題がない時は反応しない
+      const resultDiv=document.getElementById("result");totalCount++;
+      if(userInput.toLowerCase().trim()===dictionary[currentWord].toLowerCase()){
+        resultDiv.textContent="✅ Correct!";resultDiv.style.color="green";correctCount++;
+      }else{
+        resultDiv.textContent=`❌ Wrong! Answer: ${dictionary[currentWord]}`;resultDiv.style.color="red";
+        if(!wrongWords.includes(currentWord)) wrongWords.push(currentWord);
+      }
+      document.getElementById("score").textContent=`Score: ${correctCount} / ${totalCount}`;
+      saveState();setTimeout(nextWord,1500);
+    }
+
+    function showHint(){
+      if(currentWord){
+        alert("Hint: "+dictionary[currentWord][0].toUpperCase());
+      }
+    }
+
+    function createTabs(){
+      const tabDiv=document.getElementById("tabs");tabDiv.innerHTML="";
+      const allBtn=document.createElement("button");allBtn.textContent="ALL";allBtn.onclick=()=>{currentFilter="ALL"; startNewRound();};tabDiv.appendChild(allBtn);
+      const wrongBtn=document.createElement("button");wrongBtn.textContent="WRONG";wrongBtn.onclick=()=>{currentFilter="WRONG"; startNewRound();};tabDiv.appendChild(wrongBtn);
+      for(let i=65;i<=90;i++){
+        const btn=document.createElement("button");
+        btn.textContent=String.fromCharCode(i);
+        btn.onclick=()=>{currentFilter=String.fromCharCode(i); startNewRound();};
+        tabDiv.appendChild(btn);
+      }
+    }
+
+    function saveState(){
+      localStorage.setItem("quizState",JSON.stringify({
+        wrongWords,wordOrder,currentIndex,currentWord,correctCount,totalCount,round,userInput,currentFilter
+      }));
+    }
+
+    function loadState(){
+      const saved=localStorage.getItem("quizState");
+      if(saved){
+        const state=JSON.parse(saved);
+        wrongWords=state.wrongWords||[];
+        wordOrder=state.wordOrder||[];
+        currentIndex=state.currentIndex||0;
+        currentWord=state.currentWord||"";
+        correctCount=state.correctCount||0;
+        totalCount=state.totalCount||0;
+        round=state.round||1;
+        userInput=state.userInput||"";
+        currentFilter=state.currentFilter||"ALL";
+        document.getElementById("score").textContent=`Score: ${correctCount} / ${totalCount}`;
+        document.getElementById("round").textContent=`Round: ${round}`;
+        document.getElementById("inputDisplay").textContent=userInput;
+        if(currentWord) document.getElementById("meaning").textContent=currentWord;
+        submitBtn.disabled = !currentWord;
+      }
+    }
+
+    window.onload=()=>{
+      createKeyboard(); createTabs(); loadState();
+      if(!currentWord) startNewRound();
+    }
   </script>
 </body>
 </html>
