@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+<title>英単語 暗記モード</title>
+<style>
+  body { margin:0; background:#0f1115; color:#e8edf5; font-family: system-ui, sans-serif; }
+  header { padding:10px 14px; border-bottom:1px solid #202431; }
+  header h1{margin:0; font-size:18px}
+  main{max-width:800px; margin:20px auto; padding:0 14px 40px}
+  .panel{background:#151923; border:1px solid #202431; border-radius:14px; padding:14px; margin-bottom:14px;}
+  .panel h2{margin:0 0 10px; font-size:15px; color:#cdd6e6}
+  .card{
+    border:1px solid #252c3e; min-height:180px; border-radius:12px; padding:20px;
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    font-size:28px; font-weight:bold; background:#1a1e2b; position:relative;
+  }
+  .progress{height:8px; background:#1a2030; border:1px solid #273146; border-radius:999px; overflow:hidden; width:80%; margin-top:14px;}
+  .progress>i{display:block; height:100%; width:0%; background:linear-gradient(90deg,#6aa6ff,#9ae6b4);}
+  table{width:100%; border-collapse:collapse; font-size:14px; margin-top:10px}
+  th,td{padding:6px; border-bottom:1px solid #222b3b}
+  th{color:#cdd6e6; text-align:left}
+  button{margin:6px; padding:8px 14px; border-radius:8px; border:1px solid #2a3040; background:#193056; color:#dfe7f7; cursor:pointer;}
+  .editControls{margin-top:10px;}
+  .toggleBtn {margin-right:10px;}
+  .toggleBtn.off { background:#101426; color:#7a7f9c; }
+  .addPanel {display:none; margin-top:10px;}
+  .draggable { cursor: grab; user-select: none; touch-action: none; }
+  .dragover { background:#223056; }
+  td.actionCell { color:#ff6f61; cursor:pointer; text-align:center; }
+  .filterControls { margin:10px 0; }
+  .filterBtn { margin:2px; padding:2px 6px; border-radius:4px; border:1px solid #2a3040; background:#193056; cursor:pointer; }
+  .filterBtn.active { background:#6aa6ff; color:#000; }
+</style>
+</head>
+<body>
+<header>
+  <h1>英単語 暗記モード</h1>
+</header>
+
+<main>
+  <div class="panel">
+    <h2>暗記カード</h2>
+    <div id="card" class="card">
+      Loading...
+      <div class="progress" title="進捗"><i id="bar"></i></div>
+    </div>
+    <div style="text-align:center;">
+      <button onclick="showAnswer()">答えを見る</button>
+      <button onclick="nextWord()">次へ</button>
+      <button onclick="shuffleWords()">シャッフル</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>単語一覧</h2>
+    <div class="editControls">
+      <button id="deleteBtn" class="toggleBtn off" onclick="toggleDeleteMode()">削除モード</button>
+      <button id="addBtn" class="toggleBtn off" onclick="toggleAddMode()">追加モード</button>
+    </div>
+    <div class="filterControls" id="filterControls"></div>
+    <table id="wordTable">
+      <thead><tr><th>#</th><th>英単語</th><th>意味</th><th>操作</th></tr></thead>
+      <tbody id="listTable"></tbody>
+    </table>
+    <div id="addPanel" class="addPanel"></div>
+  </div>
+</main>
+
+<script>
+
+const words = [
+  // A area
+  { en: "above", jp: "〜の上に" },
+  { en: "abroad", jp: "海外へ" },
+  { en: "absent", jp: "欠席して" },
+  { en: "accident", jp: "事故、偶然" },
+  { en: "across", jp: "〜を横切って" },
+  { en: "act", jp: "演じる、行動する" },
+  { en: "active", jp: "活動的な" },
+  { en: "adult", jp: "大人" },
+  { en: "afraid", jp: "怖がって" },
+  { en: "again", jp: "再び、また" },
+  { en: "against", jp: "〜に反対して、〜に対して" },
+  { en: "ago", jp: "〜前に" },
+  { en: "air", jp: "空気、雰囲気" },
+  { en: "airport", jp: "空港" },
+  { en: "alarm", jp: "警報を出す" },
+  { en: "alive", jp: "生きている" },
+  { en: "all", jp: "まったく、すべて(の)" },
+  { en: "alone", jp: "一人で" },
+  { en: "along", jp: "〜に沿って" },
+  { en: "aloud", jp: "声を出して" },
+  { en: "already", jp: "すでに" },
+  { en: "also", jp: "〜もまた、さらに" },
+  { en: "angry", jp: "怒っている" },
+  { en: "another", jp: "別の、他の" },
+  { en: "anything", jp: "(?)何か、(not)何も(〜ない)、(yes)何でも" },
+  { en: "apron", jp: "エプロン、前掛け" },
+  { en: "area", jp: "面積、地域" },
+  { en: "around", jp: "〜の周りを、およそ" },
+  { en: "arrive", jp: "到着する" },
+
+  // B area
+  { en: "bake", jp: "(パンなどを)焼く" },
+  { en: "bathroom", jp: "浴室、トイレ" },
+  { en: "beach", jp: "海辺、浜辺" },
+  { en: "beauty", jp: "美しさ" },
+  { en: "because", jp: "なぜならば、〜だから" },
+  { en: "become", jp: "〜になる" },
+  { en: "before", jp: "以前に、〜の前に" },
+  { en: "begin", jp: "始める、始まる" },
+  { en: "believe", jp: "信じる" },
+  { en: "below", jp: "〜の下に、以下の" },
+  { en: "beside", jp: "〜のそばに、〜の横に" },
+  { en: "better", jp: "よりよい" },
+  { en: "between", jp: "(２つのもの)の間で" },
+  { en: "bike", jp: "自転車" },
+  { en: "boil", jp: "ゆでる" },
+  { en: "bookstore", jp: "書店" },
+  { en: "boring", jp: "退屈な" },
+  { en: "both", jp: "両方" },
+  { en: "break", jp: "壊す、壊れる、破壊、休憩" },
+  { en: "bridge", jp: "橋" },
+  { en: "bright", jp: "光り輝く、明るい、利口な" },
+  { en: "bring", jp: "持ってくる、連れてくる" },
+  { en: "build", jp: "建てる" },
+  { en: "busy", jp: "忙しい" },
+  { en: "by", jp: "〜によって、〜のそばに、〜にまでに" },
+
+  // C area
+  { en: "call", jp: "呼ぶ、電話をする" },
+  { en: "cancel", jp: "取り消す" },
+  { en: "capital", jp: "首都、大文字(の)、主要な" },
+  { en: "care", jp: "注意(する)、世話(をする)" },
+  { en: "careful", jp: "注意深い" },
+  { en: "castle", jp: "城" },
+  { en: "catch", jp: "捕まえる" },
+  { en: "cell phone", jp: "携帯電話" },
+  { en: "chef", jp: "料理長、シェフ" },
+  { en: "child", jp: "子ども" },
+  { en: "choose", jp: "選ぶ" },
+  { en: "circle", jp: "サークル、円、取り巻く" },
+  { en: "clean", jp: "きれいな、きれいにする" },
+  { en: "clearly", jp: "明らかに、はっきりと" },
+  { en: "clever", jp: "利口な" },
+  { en: "close", jp: "近い、親しい" },
+  { en: "collect", jp: "集める" },
+  { en: "college", jp: "大学" },
+  { en: "company", jp: "会社、仲間、交際" },
+  { en: "concert", jp: "コンサート、演奏会" },
+  { en: "contact", jp: "接触(する、させる)" },
+  { en: "contest", jp: "コンテスト、競争(する)" },
+  { en: "continent", jp: "大陸" },
+  { en: "continue", jp: "続ける" },
+  { en: "correct", jp: "正しい、訂正する、直す" },
+  { en: "could", jp: "canの過去形" },
+  { en: "country", jp: "国" },
+  { en: "course", jp: "コース、進路、講座" },
+  { en: "cousin", jp: "いとこ" },
+  { en: "cover", jp: "カバー、表紙、〜をおおう" },
+  { en: "cross", jp: "横切る" },
+  { en: "crowded", jp: "混雑した" },
+  { en: "cry", jp: "泣き声、叫び、泣く、叫ぶ" },
+  { en: "culture", jp: "文化" },
+  { en: "cut", jp: "切る" },
+
+  // D area
+  { en: "daily", jp: "毎日の、日常の" },
+  { en: "dark", jp: "暗い" },
+  { en: "date", jp: "日付、デート(をする)" },
+  { en: "daughter", jp: "娘" },
+  { en: "dear", jp: "(手紙などで)親愛なる" },
+  { en: "decide", jp: "決める、決心する" },
+  { en: "deep", jp: "深い" },
+  { en: "delicious", jp: "おいしい" },
+  { en: "desert", jp: "砂漠" },
+  { en: "design", jp: "デザイン、デザインする" },
+  { en: "dining", jp: "食事" },
+  { en: "dirty", jp: "汚れた、不潔な" },
+  { en: "doctor", jp: "医者、博士" },
+  { en: "dollar", jp: "ドル" },
+  { en: "draw", jp: "(絵を)描く、(線を)引く" },
+  { en: "dress", jp: "衣服(を着る、着せる)" },
+  { en: "during", jp: "〜の間(ずっと)" },
+
+  // E area
+  { en: "each", jp: "それぞれの" },
+  { en: "ear", jp: "耳" },
+  { en: "early", jp: "早くに、早い" },
+  { en: "earthquake", jp: "地震" },
+  { en: "easy", jp: "簡単な" },
+  { en: "eat", jp: "食べる" },
+  { en: "elderly", jp: "年配の" },
+  { en: "elementary", jp: "初歩の、基本の" },
+  { en: "email", jp: "Eメール(を送る)" },
+  { en: "enjoy", jp: "〜を楽しむ" },
+  { en: "enough", jp: "十分な[に]" },
+  { en: "enter", jp: "入る" },
+  { en: "even", jp: "〜でさえ" },
+  { en: "ever", jp: "かつて、今までに" },
+  { en: "exam", jp: "試験" },
+  { en: "example", jp: "例" },
+  { en: "excite", jp: "興奮させる" },
+  { en: "expensive", jp: "高価な" },
+  { en: "explain", jp: "説明する" },
+
+  // F area
+  { en: "fact", jp: "事実、真実" },
+  { en: "factory", jp: "工場" },
+  { en: "fall", jp: "落ちる、落下、<米>秋" },
+  { en: "famous", jp: "有名な" },
+  { en: "farm", jp: "農場、農家" },
+  { en: "favorite", jp: "お気に入りの(人、もの)" },
+  { en: "feel", jp: "感じる" },
+  { en: "few", jp: "少ない、ほとんどない" },
+  { en: "finally", jp: "ついに、最後に" },
+  { en: "find", jp: "見つける、分かる" },
+  { en: "fine", jp: "晴れた、元気な、見事な" },
+  { en: "finish", jp: "終える" },
+  { en: "first", jp: "最初(の、に)" },
+  { en: "floor", jp: "床、(建物の)階" },
+  { en: "fly", jp: "飛ぶ、飛行機で行く" },
+  { en: "follow", jp: "ついて行く(来る)、従う" },
+  { en: "food", jp: "食べ物、料理" },
+  { en: "forget", jp: "忘れる" },
+  { en: "French", jp: "フランス(語[人])の" },
+  { en: "friendly", jp: "親切な、親しい" },
+  { en: "full", jp: "いっぱいの、満腹の" },
+  { en: "fun", jp: "楽しさ" },
+
+  // G area
+  { en: "garden", jp: "庭(いじりをする)" },
+  { en: "Germany", jp: "ドイツ" },
+  { en: "give", jp: "与える" },
+  { en: "glad", jp: "うれしい" },
+  { en: "glass", jp: "グラス、ガラス" },
+  { en: "goal", jp: "目標、ゴール、得点" },
+  { en: "god", jp: "神" },
+  { en: "government", jp: "政府" },
+  { en: "grandfather", jp: "祖父" },
+  { en: "greet", jp: "あいさつをする" },
+  { en: "group", jp: "グループ、団体" },
+  { en: "grow", jp: "育てる、育つ" },
+  { en: "guess", jp: "推測(する)" },
+  { en: "gym", jp: "体育館" },
+
+  // H area
+  { en: "half", jp: "半分(の)" },
+  { en: "happen", jp: "起こる" },
+  { en: "hard", jp: "固い、難しい、一生懸命" },
+  { en: "headache", jp: "頭痛" },
+  { en: "heavy", jp: "重い、激しい" },
+  { en: "hill", jp: "丘、小山" },
+  { en: "hobby", jp: "趣味" },
+  { en: "hold", jp: "持つ、保つ、握る" },
+  { en: "homesick", jp: "ホームシックの" },
+  { en: "hope", jp: "期待、望む" },
+  { en: "hospital", jp: "病院" },
+  { en: "hour", jp: "(１)時間" },
+  { en: "hungry", jp: "おなかがすいた" },
+  { en: "hurry", jp: "急ぐ、急ぎ" },
+  { en: "hurt", jp: "傷つける、痛む、苦痛、傷ついた" },
+
+  // I area
+  { en: "if", jp: "もし〜ならば" },
+  { en: "important", jp: "重要な" },
+  { en: "information", jp: "インフォメーション、情報" },
+  { en: "interesting", jp: "おもしろい" },
+  { en: "Internet", jp: "インターネット" },
+  { en: "interview", jp: "インタビュー(をする)" },
+  { en: "invite", jp: "招待する" },
+  { en: "island", jp: "島" },
+  { en: "jog", jp: "ジョギングをする" },
+  { en: "join", jp: "加わる、参加する、つなぐ" },
+  { en: "judge", jp: "審査員、裁判官、判断する" },
+  { en: "junior", jp: "年下(の)、後輩(の)" },
+  { en: "just", jp: "公正な、ちょうど、ただ" },
+
+  // K area
+  { en: "keep", jp: "保つ、続ける" },
+  { en: "kind", jp: "種類" },
+  { en: "kitten", jp: "子猫" },
+  { en: "knock", jp: "ノック(する)、たたく" },
+
+  // L area
+  { en: "land", jp: "陸、土地、着陸[上陸]する" },
+  { en: "last", jp: "続く、最後の" },
+  { en: "late", jp: "遅い、遅く" },
+  { en: "later", jp: "あとで、後ほど" },
+  { en: "laugh", jp: "(声を出して)笑う" },
+  { en: "leaf", jp: "葉" },
+  { en: "learn", jp: "学ぶ" },
+  { en: "lend", jp: "貸す" },
+  { en: "less", jp: "より少ない" },
+  { en: "lesson", jp: "レッスン、(〜s)授業" },
+  { en: "let", jp: "させる" },
+  { en: "look", jp: "見る、見える" },
+  { en: "lost", jp: "道に迷った" },
+  { en: "loud", jp: "(声が)大きい、大声で" },
+
+  //——————————————————————————————————————————————————————————
+  // M area
+  //——————————————————————————————————————————————————————————
+  { en: "machine", jp: "機械" },
+  { en: "magazine", jp: "雑誌" },
+  { en: "main", jp: "主な、主要な" },
+  { en: "make", jp: "作る、する" },
+  { en: "maybe", jp: "たぶん、おそらく" },
+  { en: "mean", jp: "意味する" },
+  { en: "meeting", jp: "ミーティング、会議" },
+  { en: "memory", jp: "思い出、記憶(力)" },
+  { en: "message", jp: "メッセージ、伝言" },
+  { en: "minute", jp: "分、ちょっとの間" },
+  { en: "mirror", jp: "鏡" },
+  { en: "model", jp: "モデル、型、模型、手本" },
+  { en: "moon", jp: "月" },
+  { en: "most", jp: "大部分の、最も" },
+  { en: "mountain", jp: "山" },
+  { en: "movie", jp: "映画" },
+  { en: "museum", jp: "博物館" },
+  { en: "musician", jp: "音楽家、演奏家" },
+  { en: "must", jp: "〜しなければならない" },
+  { en: "myself", jp: "私自身" },
+
+  //——————————————————————————————————————————————————————————
+  // N area
+  //——————————————————————————————————————————————————————————
+  { en: "name", jp: "名(づける)" },
+  { en: "narrow", jp: "狭い、やっとの、狭める" },
+  { en: "native", jp: "ある土地で生まれた、固有の" },
+  { en: "need", jp: "必要とする" },
+  { en: "nervous", jp: "神経質な、心配して" },
+  { en: "never", jp: "けっして〜ない、一度も〜ない" },
+  { en: "newspaper", jp: "新聞" },
+  { en: "next", jp: "次の、次に" },
+  { en: "noon", jp: "正午" },
+  { en: "nurse", jp: "看護師" },
+
+  //——————————————————————————————————————————————————————————
+  // O area
+  //——————————————————————————————————————————————————————————
+  { en: "often", jp: "しばしば" },
+  { en: "online", jp: "オンラインで" },
+  { en: "order", jp: "順序、注文(する)、命令(する)" },
+  { en: "other", jp: "ほか(の)" },
+  { en: "overseas", jp: "海外へ[に]" },
+
+  //——————————————————————————————————————————————————————————
+  // P area
+  //——————————————————————————————————————————————————————————
+  { en: "page", jp: "ページ" },
+  { en: "paint", jp: "絵の具、〜を絵の具で描く" },
+  { en: "paper", jp: "紙、(〜s)書類、新聞" },
+  { en: "parent", jp: "親" },
+  { en: "part", jp: "一部、役" },
+  { en: "pass", jp: "合格する、通る" },
+  { en: "peace", jp: "平和" },
+  { en: "perfect", jp: "完璧な" },
+  { en: "person", jp: "人" },
+  { en: "pick", jp: "選ぶ(こと)、つまみ取る" },
+  { en: "place", jp: "場所、〜を置く" },
+  { en: "plan", jp: "計画(する)、予定" },
+  { en: "plane", jp: "飛行機" },
+  { en: "pleasure", jp: "喜び" },
+  { en: "point", jp: "要点、点、先端、指をさす" },
+  { en: "pretty", jp: "かわいい、とても、かなり" },
+  { en: "price", jp: "価格、値段" },
+  { en: "problem", jp: "問題、困ったこと" },
+  { en: "professional", jp: "プロ(の)、職業の" },
+  { en: "promise", jp: "約束(する)、見込み(がある)" },
+  { en: "put", jp: "置く" },
+
+  //——————————————————————————————————————————————————————————
+  // R area
+  //——————————————————————————————————————————————————————————
+  { en: "race", jp: "レース、競争、人種" },
+  { en: "rain", jp: "雨(が降る)" },
+  { en: "reach", jp: "届く(範囲)、到着する、リーチ" },
+  { en: "ready", jp: "準備ができて" },
+  { en: "real", jp: "現実の、本物の" },
+  { en: "record", jp: "記録、記録する" },
+  { en: "recycle", jp: "再利用する" },
+  { en: "report", jp: "レポート、報告、報告する" },
+  { en: "restaurant", jp: "レストラン" },
+  { en: "ride", jp: "乗る" },
+  { en: "right", jp: "右(の)、正しい" },
+  { en: "road", jp: "道、道路" },
+
+  //——————————————————————————————————————————————————————————
+  // S area
+  //——————————————————————————————————————————————————————————
+  { en: "sad", jp: "悲しい" },
+  { en: "safe", jp: "安全な" },
+  { en: "same", jp: "同じ" },
+  { en: "save", jp: "救う、節約する" },
+  { en: "say", jp: "言う、書いてある" },
+  { en: "science", jp: "科学、理科" },
+  { en: "section", jp: "地区、(会社などの)課" },
+  { en: "see", jp: "見る、会う" },
+  { en: "sell", jp: "売る" },
+  { en: "send", jp: "送る" },
+  { en: "shine", jp: "光る、輝く" },
+  { en: "shock", jp: "衝撃、衝撃を与える" },
+  { en: "should", jp: "〜すべきだ、〜したほうがよい" },
+  { en: "show", jp: "ショー、見せる、教える" },
+  { en: "shut", jp: "閉める" },
+  { en: "sign", jp: "看板、署名する" },
+  { en: "silent", jp: "静かな" },
+  { en: "since", jp: "〜以来" },
+  { en: "sir", jp: "お客様(男性への呼びかけ)" },
+  { en: "sleep", jp: "眠る" },
+  { en: "slice", jp: "スライス、薄切りにする" },
+  { en: "slowly", jp: "ゆっくり" },
+  { en: "smell", jp: "におい(がする)" },
+  { en: "solar", jp: "太陽の" },
+  { en: "someday", jp: "いつの日か" },
+  { en: "someone", jp: "だれか" },
+  { en: "sorry", jp: "残念に思って、申し訳ない" },
+  { en: "sound", jp: "音、聞こえる" },
+  { en: "southern", jp: "南の" },
+  { en: "speak", jp: "話す" },
+  { en: "spend", jp: "費やす" },
+  { en: "stamp", jp: "スタンプ、切手、(印)を押す" },
+  { en: "still", jp: "さらに、いまだに" },
+  { en: "store", jp: "店、蓄える" },
+  { en: "straight", jp: "まっすぐな(に)、連続した" },
+  { en: "street", jp: "通り" },
+  { en: "strong", jp: "強い、丈夫な" },
+  { en: "subject", jp: "主題、話題、教科" },
+  { en: "such", jp: "そのような" },
+  { en: "sudden", jp: "突然の" },
+  { en: "suit", jp: "スーツ、似合う" },
+  { en: "sure", jp: "確かな、確実な" },
+  { en: "sweet", jp: "甘い、快い" },
+  { en: "symbol", jp: "象徴、シンボル" },
+  { en: "system", jp: "システム、制度" },
+
+  //——————————————————————————————————————————————————————————
+  // T area
+  //——————————————————————————————————————————————————————————
+  { en: "take", jp: "取る、連れていく" },
+  { en: "taste", jp: "味(がする)、好み" },
+  { en: "tell", jp: "伝える、教える" },
+  { en: "than", jp: "〜よりも" },
+  { en: "thing", jp: "もの、こと" },
+  { en: "thirsty", jp: "のどが渇いた" },
+  { en: "thousand", jp: "千" },
+  { en: "throw", jp: "投げる" },
+  { en: "tie", jp: "ネクタイ、結ぶ、縛る" },
+  { en: "tight", jp: "窮屈な、厳しい" },
+  { en: "tired", jp: "疲れた、飽きた" },
+  { en: "together", jp: "いっしょに" },
+  { en: "tonight", jp: "今夜" },
+  { en: "tool", jp: "道具" },
+  { en: "tour", jp: "ツアー、旅行" },
+  { en: "tournament", jp: "勝ち抜き試合、トーナメント" },
+  { en: "travel", jp: "旅行(する)" },
+  { en: "trick", jp: "トリック、わな、こつ、だます" },
+  { en: "true", jp: "本当の、真実の" },
+  { en: "try", jp: "試みる、試み" },
+  { en: "twice", jp: "２回" },
+  { en: "type", jp: "型、タイプ、入力する" },
+  { en: "typhoon", jp: "台風" },
+
+  //——————————————————————————————————————————————————————————
+  // U area
+  //——————————————————————————————————————————————————————————
+  { en: "uncle", jp: "おじ" },
+  { en: "understand", jp: "理解する" },
+  { en: "university", jp: "(総合)大学" },
+  { en: "untill", jp: "〜まで" },
+  { en: "upstairs", jp: "上の階へ" },
+  { en: "use", jp: "使用する、使用" },
+  { en: "usual", jp: "ふだんの、何気ない" },
+
+  //——————————————————————————————————————————————————————————
+  // V area
+  //——————————————————————————————————————————————————————————
+  { en: "vacation", jp: "休み" },
+  { en: "vegetable", jp: "野菜" },
+  { en: "village", jp: "村" },
+  { en: "visit", jp: "〜を訪問する、訪問" },
+  { en: "voice", jp: "声" },
+
+  //——————————————————————————————————————————————————————————
+  // W area
+  //——————————————————————————————————————————————————————————
+  { en: "wait", jp: "待つ" },
+  { en: "war", jp: "戦争(状態)" },
+  { en: "warm", jp: "暖かい、思いやりのある" },
+  { en: "watch", jp: "腕時計、(じっくりと)見る" },
+  { en: "way", jp: "やり方、道、方法" },
+  { en: "weak", jp: "弱い、力のない" },
+  { en: "wear", jp: "身につけている" },
+  { en: "weather", jp: "天気、天候" },
+  { en: "website", jp: "ウェブサイト" },
+  { en: "wedding", jp: "婚礼、結婚式" },
+  { en: "weekend", jp: "週末(の)" },
+  { en: "welcome", jp: "歓迎(する)、ようこそ" },
+  { en: "well", jp: "うまく、健康な、ええと" },
+  { en: "wet", jp: "ぬれた、湿った" },
+  { en: "when", jp: "いつ、〜のとき" },
+  { en: "with", jp: "〜とともに" },
+  { en: "wood", jp: "木、木材、(-s)森" },
+  { en: "word", jp: "単語、ことば" },
+  { en: "work", jp: "仕事、労働、働く、うまくいく" },
+  { en: "write", jp: "書く" },
+  { en: "wrong", jp: "悪い、間違った" },
+
+  //——————————————————————————————————————————————————————————
+  // Y area
+  //——————————————————————————————————————————————————————————
+  { en: "yet", jp: "もう、まだ(〜ない)" },
+
+  //——————————————————————————————————————————————————————————
+  // Z area
+  //——————————————————————————————————————————————————————————
+  { en: "zoo", jp: "動物園" }
+];
+
+let deletedWords = [];
+let filteredWords = [...words]; // 現在のフィルター適用後の配列
+let currentIndex = 0;
+let showingAnswer = false;
+let deleteMode = false;
+let addMode = false;
+let currentFilter = '';
+let isShuffled = false;
+
+// --- 単語表示 ---
+function showWord() {
+  const card = document.getElementById("card");
+  const wordArray = isShuffled ? filteredWordsShuffled : filteredWords;
+  const word = wordArray[currentIndex];
+  card.firstChild.textContent = word ? (showingAnswer ? word.jp : word.en) : "単語がありません";
+  updateProgress();
+}
+function showAnswer() { showingAnswer = true; showWord(); }
+function nextWord() {
+  const wordArray = isShuffled ? filteredWordsShuffled : filteredWords;
+  if(wordArray.length === 0) return;
+  currentIndex = (currentIndex + 1) % wordArray.length;
+  showingAnswer = false;
+  showWord();
+}
+
+// --- プログレスバー ---
+function updateProgress(){
+  const wordArray = isShuffled ? filteredWordsShuffled : filteredWords;
+  const pct = wordArray.length ? Math.round(((currentIndex)/wordArray.length)*100) : 0;
+  document.getElementById("bar").style.width = pct+"%";
+}
+
+// --- フィルター ---
+function buildFilter() {
+  const container = document.getElementById("filterControls");
+  container.innerHTML = '';
+  const allBtn = document.createElement("button");
+  allBtn.textContent = 'All';
+  allBtn.className='filterBtn' + (currentFilter===''?' active':'');
+  allBtn.onclick = ()=>{ currentFilter=''; applyFilter(); };
+  container.appendChild(allBtn);
+
+  for(let i=97;i<=122;i++){
+    const letter = String.fromCharCode(i);
+    const btn = document.createElement("button");
+    btn.textContent = letter;
+    btn.className='filterBtn' + (currentFilter===letter?' active':'');
+    btn.onclick = ()=>{ currentFilter=letter; applyFilter(); };
+    container.appendChild(btn);
+  }
+}
+
+function applyFilter(){
+  filteredWords = words.filter(w=>!currentFilter || w.en.toLowerCase().startsWith(currentFilter));
+  currentIndex = 0;
+  showingAnswer = false;
+  isShuffled = false;
+  buildList();
+  buildAddPanel();
+  buildFilter();
+  showWord();
+}
+
+// --- リスト作成 ---
+function buildList() {
+  const tbody = document.getElementById("listTable");
+  tbody.innerHTML = "";
+  words.forEach((w,i)=>{
+    if(currentFilter && !w.en.toLowerCase().startsWith(currentFilter)) return;
+    const tr = document.createElement("tr");
+    tr.dataset.index = i;
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td class="draggable">${w.en}</td>
+      <td>${w.jp}</td>
+      <td class="actionCell">${deleteMode ? "削除" : ""}</td>
+    `;
+    if(deleteMode){
+      tr.querySelector(".actionCell").onclick=()=>deleteWord(i);
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+// --- 削除・追加 ---
+function deleteWord(index) {
+  deletedWords.push(words[index]);
+  words.splice(index,1);
+  applyFilter();
+}
+
+function buildAddPanel() {
+  const panel = document.getElementById("addPanel");
+  if(!addMode){ panel.style.display='none'; return; }
+  panel.style.display='block';
+  panel.innerHTML='';
+
+  deletedWords.forEach((w,i)=>{
+    if(currentFilter && !w.en.toLowerCase().startsWith(currentFilter)) return;
+    const btn = document.createElement("div");
+    btn.textContent=`${w.en} → ${w.jp}`;
+    btn.className='draggable';
+    btn.style.padding='6px';
+    btn.style.border='1px solid #2a3040';
+    btn.style.marginBottom='4px';
+    btn.style.borderRadius='6px';
+    btn.style.background='#1a1e2b';
+    btn.draggable = true;
+    btn.ondragstart=(e)=>{
+      e.dataTransfer.setData('text/plain', i);
+      btn.style.opacity='0.5';
+    };
+    btn.ondragend=(e)=>{
+      btn.style.opacity='1';
+      buildList();
+      buildAddPanel();
+    };
+    panel.appendChild(btn);
+  });
+
+  const tbody = document.getElementById("listTable");
+  tbody.ondragover = e=>e.preventDefault();
+  tbody.ondrop = e=>{
+    const idx = e.dataTransfer.getData('text/plain');
+    if(idx==null) return;
+    const item = deletedWords.splice(idx,1)[0];
+    words.push(item);
+    applyFilter();
+  };
+}
+
+// --- モード切替 ---
+function toggleDeleteMode(){ setMode('delete'); }
+function toggleAddMode(){ setMode('add'); }
+function setMode(mode){
+  if((mode==='delete' && deleteMode) || (mode==='add' && addMode)){
+    deleteMode=addMode=false;
+  } else {
+    deleteMode=addMode=false;
+    if(mode==='delete') deleteMode=true;
+    if(mode==='add') addMode=true;
+  }
+  ['delete','add'].forEach(m=>{
+    const btn=document.getElementById(m+'Btn');
+    if((m==='delete' && deleteMode)||(m==='add' && addMode)){
+      btn.classList.remove('off');
+    } else btn.classList.add('off');
+  });
+  buildList();
+  buildAddPanel();
+}
+
+// --- シャッフル ---
+let filteredWordsShuffled = [];
+function shuffleWords(){
+  filteredWordsShuffled = [...filteredWords];
+  for (let i = filteredWordsShuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [filteredWordsShuffled[i], filteredWordsShuffled[j]] = [filteredWordsShuffled[j], filteredWordsShuffled[i]];
+  }
+  currentIndex = 0;
+  showingAnswer = false;
+  isShuffled = true;
+  showWord();
+}
+
+// 初期表示
+applyFilter();
+</script>
+</body>
+</html>
