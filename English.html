@@ -104,6 +104,7 @@
     
     #hintBtn { background: #f59e0b; color: white; }
     #hintBtn:active { background: #b45309; }
+    #hintBtn:disabled { background: #cbd5e1; cursor: not-allowed; }
 
     #result {
       font-size: clamp(16px, 3vw, 22px);
@@ -630,6 +631,7 @@
 
     const keyboardLayout = ["qwertyuiop","asdfghjkl","zxcvbnm"];
     const submitBtn = document.getElementById("submitBtn");
+    const hintBtn = document.getElementById("hintBtn");
 
     function shuffle(array){for(let i=array.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[array[i],array[j]]=[array[j],array[i]]}return array;}
 
@@ -664,6 +666,7 @@
         document.getElementById("meaning").textContent="";
         document.getElementById("inputDisplay").textContent="";
         submitBtn.disabled = true;
+        hintBtn.disabled = true;
         return;
       }
 
@@ -681,6 +684,7 @@
         document.getElementById("inputDisplay").textContent="";
         document.getElementById("result").textContent="";
         submitBtn.disabled = true;
+        hintBtn.disabled = true;
         saveState();
         setTimeout(()=>{round++; startNewRound();},2000);
         return;
@@ -690,6 +694,7 @@
       userInput="";document.getElementById("inputDisplay").textContent="";
       document.getElementById("result").textContent="";
       submitBtn.disabled = false;
+      hintBtn.disabled = false;
       saveState();
     }
 
@@ -698,6 +703,8 @@
       const resultDiv=document.getElementById("result");totalCount++;
       if(userInput.toLowerCase().trim()===dictionary[currentWord].toLowerCase()){
         resultDiv.textContent="✅ Correct!";resultDiv.style.color="green";correctCount++;
+        const wrongIndex = wrongWords.indexOf(currentWord);
+        if(wrongIndex !== -1) wrongWords.splice(wrongIndex, 1);
       }else{
         resultDiv.textContent=`❌ Wrong! Answer: ${dictionary[currentWord]}`;resultDiv.style.color="red";
         if(!wrongWords.includes(currentWord)) wrongWords.push(currentWord);
