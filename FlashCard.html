@@ -13,10 +13,12 @@ main{max-width:800px; margin:20px auto; padding:0 14px 40px}
 .panel{background:#151923; border:1px solid #202431; border-radius:14px; padding:14px; margin-bottom:14px;}
 .panel h2{margin:0 0 10px; font-size:15px; color:#cdd6e6}
 .card{
-  border:1px solid #252c3e; min-height:180px; border-radius:12px; padding:20px;
+  border:1px solid #252c3e; min-height:200px; border-radius:12px; padding:20px;
   display:flex; flex-direction:column; justify-content:center; align-items:center;
   font-size:28px; font-weight:bold; background:#1a1e2b; position:relative;
 }
+#phonetic { font-size:18px; color:#9bb3d6; margin-top:10px; }
+#speakBtn { font-size:14px; margin-top:6px; padding:4px 10px; }
 .progress{height:8px; background:#1a2030; border:1px solid #273146; border-radius:999px; overflow:hidden; width:80%; margin-top:14px;}
 .progress>i{
   display:block; height:100%; width:0%; background:linear-gradient(90deg,#6aa6ff,#9ae6b4);
@@ -47,7 +49,10 @@ td.actionCell { color:#ff6f61; cursor:pointer; text-align:center; }
 <main>
 <div class="panel">
   <h2>暗記カード</h2>
-  <div id="card" class="card">Loading...
+  <div id="card" class="card">
+    <div id="wordText">Loading...</div>
+    <div id="phonetic"></div>
+    <button id="speakBtn" onclick="speakWord()">🔊 発音</button>
     <div class="progress" title="進捗"><i id="bar"></i></div>
   </div>
   <div style="text-align:center;">
@@ -554,11 +559,21 @@ function loadState(){
 
 // --- カード表示 ---
 function showWord(){
-  const card = document.getElementById("card");
+  const wordText = document.getElementById("wordText");
+  const phonetic = document.getElementById("phonetic");
+
   let wordArray = isShuffled ? (filterShuffles[currentFilter]||[]) : filteredWords;
   let idx = filterIndexes[currentFilter] || 0;
   const word = wordArray[idx];
-  card.firstChild.textContent = word ? (showingAnswer ? word.jp : word.en) : "単語がありません";
+
+  if(!word){
+    wordText.textContent = "単語がありません";
+    phonetic.textContent = "";
+    return;
+  }
+
+  wordText.textContent = showingAnswer ? word.jp : word.en;
+  phonetic.textContent = word.phonetic || "";
   updateProgress();
   saveState();
 }
@@ -572,6 +587,38 @@ function nextWord(){
   filterIndexes[currentFilter] = idx;
   showingAnswer=false;
   showWord();
+}
+
+// --- 発音 ---
+
+let voices = [];
+
+function loadVoices() {
+  voices = speechSynthesis.getVoices();
+  if (!voices.length) {
+    // まだロードされていなければ少し待って再試行
+    setTimeout(loadVoices, 100);
+  }
+}
+speechSynthesis.onvoiceschanged = loadVoices;
+loadVoices();
+
+function speakWord() {
+  let wordArray = isShuffled ? (filterShuffles[currentFilter]||[]) : filteredWords;
+  let idx = filterIndexes[currentFilter] || 0;
+  const word = wordArray[idx];
+  if (!word) return;
+
+  const utter = new SpeechSynthesisUtterance(word.en);
+  utter.lang = "en-US";
+
+  // voices が空じゃないかチェック
+  if (voices.length > 0) {
+    const selectedVoice = voices.find(v => v.name.includes("Samantha"));
+    if (selectedVoice) utter.voice = selectedVoice;
+  }
+
+  speechSynthesis.speak(utter);
 }
 
 // --- プログレスバー ---
@@ -603,9 +650,7 @@ function buildFilter() {
 
 function applyFilter(){
   filteredWords = words.filter(w=>!currentFilter || w.en.toLowerCase().startsWith(currentFilter));
-  // フィルター切替時にindexが未設定なら0にする
   if(!(currentFilter in filterIndexes)) filterIndexes[currentFilter] = 0;
-  // シャッフルがある場合も更新
   if(isShuffled){
     if(!filterShuffles[currentFilter]) filterShuffles[currentFilter] = [...filteredWords];
   }
@@ -679,10 +724,7 @@ function setMode(mode){
 
 // --- シャッフル ---
 function shuffleWords(){
-  filteredWords.forEach((_,i)=>{
-    const j = Math.floor(Math.random()*(i+1));
-    [filteredWords[i], filteredWords[j]] = [filteredWords[j], filteredWords[i]];
-  });
+  filteredWords.sort(()=>Math.random()-0.5);
   filterShuffles[currentFilter] = [...filteredWords];
   filterIndexes[currentFilter] = 0;
   isShuffled=true;
@@ -696,7 +738,7 @@ function restoreOrder(){
   filterShuffles[currentFilter]=[];
   filterIndexes[currentFilter]=0;
   showingAnswer=false;
-  showWord();
+  applyFilter(); // 元の順序で再生成
 }
 
 // --- リセット ---
