@@ -38,6 +38,29 @@ td.actionCell { color:#ff6f61; cursor:pointer; text-align:center; }
 .filterControls { margin:10px 0; }
 .filterBtn { margin:2px; padding:2px 6px; border-radius:4px; border:1px solid #2a3040; background:#193056; cursor:pointer; }
 .filterBtn.active { background:#6aa6ff; color:#000; }
+/* リストの単語セルを丸く楕円に */
+#listTable td.draggable {
+  padding: 6px 12px;           /* 横長にして楕円に見せる */
+  border-radius: 999px;        /* 楕円の丸み */
+  transition: background-color 0.3s ease, color 0.3s ease;
+  background-color: #1a1e2b;  /* 通常の背景色 */
+  color: #dfe7f7;              /* 通常文字色 */
+  cursor: default;
+}
+/* ハイライトされた単語 */
+#listTable td.draggable.highlighted {
+  background-color: #cce4ff;  /* 淡い青色 */
+  color: #000;                 /* 文字は黒っぽく */
+}
+/* ハイライトをフラッシュさせたい場合 */
+#listTable td.draggable.highlighted.flash {
+  animation: flashHighlight 0.6s ease;
+}
+@keyframes flashHighlight {
+  0% { background-color: #cce4ff; }
+  50% { background-color: #e6f0ff; }
+  100% { background-color: #cce4ff; }
+}
 </style>
 </head>
 <body>
@@ -76,6 +99,13 @@ td.actionCell { color:#ff6f61; cursor:pointer; text-align:center; }
   </table>
   <div id="addPanel" class="addPanel"></div>
 </div>
+
+<!-- ボタン配置例（右側縦置き） -->
+<div style="position:absolute; right:10px; top:50px; display:flex; flex-direction:column; gap:8px;">
+  <button id="autoSpeakBtn" onclick="toggleAutoSpeak()">自動発音: OFF</button>
+  <button id="autoQABtn" onclick="toggleAutoQA()">自動Q→A: OFF</button>
+</div>
+
 </main>
 
 <script>
@@ -536,6 +566,12 @@ let showingAnswer=false, deleteMode=false, addMode=false, isShuffled=false;
 let filterIndexes = {};   // フィルターごとの現在index
 let filterShuffles = {};  // フィルターごとのシャッフル順
 
+// --- 自動発音・自動Q→A ---
+let autoSpeakNext = localStorage.getItem('FC_autoSpeakNext')==='true' || false;
+let autoQAInterval = localStorage.getItem('FC_autoQAInterval')==='true' || false;
+let autoQATimer = null;
+let qaDelay = 3000; // 3秒
+
 // --- 保存・復元 ---
 function saveState(){
   localStorage.setItem('FC_words', JSON.stringify(words));
@@ -545,6 +581,8 @@ function saveState(){
   localStorage.setItem('FC_currentFilter', currentFilter);
   localStorage.setItem('FC_filterIndexes', JSON.stringify(filterIndexes));
   localStorage.setItem('FC_filterShuffles', JSON.stringify(filterShuffles));
+  localStorage.setItem('FC_autoSpeakNext', autoSpeakNext);
+  localStorage.setItem('FC_autoQAInterval', autoQAInterval);
 }
 
 function loadState(){
@@ -555,6 +593,8 @@ function loadState(){
   currentFilter = localStorage.getItem('FC_currentFilter') || '';
   filterIndexes = JSON.parse(localStorage.getItem('FC_filterIndexes')) || {};
   filterShuffles = JSON.parse(localStorage.getItem('FC_filterShuffles')) || {};
+  autoSpeakNext = localStorage.getItem('FC_autoSpeakNext')==='true' || false;
+  autoQAInterval = localStorage.getItem('FC_autoQAInterval')==='true' || false;
 }
 
 // --- カード表示 ---
@@ -563,25 +603,41 @@ function showWord(){
   const phonetic = document.getElementById("phonetic");
 
   let wordArray = isShuffled ? (filterShuffles[currentFilter]||[]) : filteredWords;
-  let idx = filterIndexes[currentFilter] || 0;
-  const word = wordArray[idx];
 
-  if(!word){
+  if(!wordArray || wordArray.length===0){
     wordText.textContent = "単語がありません";
     phonetic.textContent = "";
+    document.getElementById("bar").style.width = "0%";
     return;
   }
 
+  let idx = filterIndexes[currentFilter] || 0;
+  if(idx >= wordArray.length) idx = 0;
+  filterIndexes[currentFilter] = idx;
+
+  const word = wordArray[idx];
   wordText.textContent = showingAnswer ? word.jp : word.en;
   phonetic.textContent = word.phonetic || "";
   updateProgress();
+  buildList();
+  highlightCurrentWord();
   saveState();
+
+  // 自動発音（問題表示時のみ）
+  if(autoSpeakNext && !showingAnswer) speakWord();
+
+  // 自動Q→A
+  if(autoQAInterval){
+    if(autoQATimer) clearTimeout(autoQATimer);
+    autoQATimer = setTimeout(startAutoQA, qaDelay);
+  }
 }
 
 function showAnswer(){ showingAnswer = true; showWord(); }
+
 function nextWord(){
   let wordArray = isShuffled ? (filterShuffles[currentFilter]||[]) : filteredWords;
-  if(wordArray.length===0) return;
+  if(!wordArray || wordArray.length===0) return;
   let idx = filterIndexes[currentFilter] || 0;
   idx = (idx+1)%wordArray.length;
   filterIndexes[currentFilter] = idx;
@@ -590,15 +646,10 @@ function nextWord(){
 }
 
 // --- 発音 ---
-
 let voices = [];
-
 function loadVoices() {
   voices = speechSynthesis.getVoices();
-  if (!voices.length) {
-    // まだロードされていなければ少し待って再試行
-    setTimeout(loadVoices, 100);
-  }
+  if (!voices.length) setTimeout(loadVoices, 100);
 }
 speechSynthesis.onvoiceschanged = loadVoices;
 loadVoices();
@@ -611,14 +662,55 @@ function speakWord() {
 
   const utter = new SpeechSynthesisUtterance(word.en);
   utter.lang = "en-US";
-
-  // voices が空じゃないかチェック
-  if (voices.length > 0) {
-    const selectedVoice = voices.find(v => v.name.includes("Samantha"));
-    if (selectedVoice) utter.voice = selectedVoice;
+  if (voices.length>0){
+    const v = voices.find(x=>x.name.includes("Samantha"));
+    if(v) utter.voice=v;
   }
-
   speechSynthesis.speak(utter);
+}
+
+// --- 自動発音トグル ---
+function toggleAutoSpeak() {
+  autoSpeakNext = !autoSpeakNext;
+  const btn = document.getElementById("autoSpeakBtn");
+  if(btn) btn.textContent = "自動発音: " + (autoSpeakNext ? "ON" : "OFF");
+  saveState();
+}
+
+// --- 自動Q→Aトグル ---
+function toggleAutoQA() {
+  autoQAInterval = !autoQAInterval;
+  const btn = document.getElementById("autoQABtn");
+  if(btn) btn.textContent = "自動Q→A: " + (autoQAInterval ? "ON" : "OFF");
+  saveState();
+
+  if(autoQATimer) clearTimeout(autoQATimer);
+
+  if(autoQAInterval){
+    showingAnswer = false;
+    showWord(); // 問題表示＆自動発音
+    startAutoQA();
+  }
+}
+
+function startAutoQA() {
+  if(!autoQAInterval) return;
+
+  let wordArray = isShuffled ? (filterShuffles[currentFilter]||[]) : filteredWords;
+  if(!wordArray || wordArray.length===0) return;
+
+  if(!showingAnswer){
+    showingAnswer = true; // 答え表示
+    showWord();
+    autoQATimer = setTimeout(()=>{
+      nextWord(); // 次の単語に進む
+      startAutoQA();
+    }, qaDelay); // 答え3秒表示
+  } else {
+    showingAnswer = false; // 問題表示
+    showWord();           // 問題表示時に自動発音
+    autoQATimer = setTimeout(startAutoQA, qaDelay); // 問題3秒表示
+  }
 }
 
 // --- プログレスバー ---
@@ -650,10 +742,9 @@ function buildFilter() {
 
 function applyFilter(){
   filteredWords = words.filter(w=>!currentFilter || w.en.toLowerCase().startsWith(currentFilter));
+  if(filteredWords.length===0) filteredWords = [...words]; // 空なら全単語表示
   if(!(currentFilter in filterIndexes)) filterIndexes[currentFilter] = 0;
-  if(isShuffled){
-    if(!filterShuffles[currentFilter]) filterShuffles[currentFilter] = [...filteredWords];
-  }
+  if(isShuffled && !filterShuffles[currentFilter]) filterShuffles[currentFilter] = [...filteredWords];
   buildList();
   buildAddPanel();
   buildFilter();
@@ -663,15 +754,41 @@ function applyFilter(){
 }
 
 // --- リスト作成 ---
+function getCurrentCardWord(){
+  let wordArray = isShuffled ? (filterShuffles[currentFilter]||[]) : filteredWords;
+  let idx = filterIndexes[currentFilter] || 0;
+  const word = wordArray[idx];
+  return word ? word.en : "";
+}
+
 function buildList(){
   const tbody = document.getElementById("listTable");
   tbody.innerHTML='';
-  filteredWords.forEach((w,i)=>{
+
+  let displayArray = isShuffled ? (filterShuffles[currentFilter]||[]) : filteredWords;
+
+  displayArray.forEach((w,i)=>{
     const tr = document.createElement("tr");
     tr.dataset.index=i;
-    tr.innerHTML = `<td>${i+1}</td><td class="draggable">${w.en}</td><td>${w.jp}</td><td class="actionCell">${deleteMode?"削除":""}</td>`;
+
+    const highlightClass = (w.en === getCurrentCardWord()) ? "highlighted" : "";
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td class="draggable ${highlightClass}">${w.en}</td>
+      <td>${w.jp}</td>
+      <td class="actionCell">${deleteMode?"削除":""}</td>
+    `;
     if(deleteMode) tr.querySelector(".actionCell").onclick=()=>{ deleteWord(words.indexOf(w)); };
     tbody.appendChild(tr);
+  });
+}
+
+function highlightCurrentWord() {
+  const highlightedCells = document.querySelectorAll("#listTable td.draggable.highlighted");
+  highlightedCells.forEach(cell => {
+    cell.classList.remove("flash");
+    void cell.offsetWidth;
+    cell.classList.add("flash");
   });
 }
 
@@ -711,6 +828,7 @@ function addWordBack(idx){
 // --- モード切替 ---
 function toggleDeleteMode(){ setMode('delete'); }
 function toggleAddMode(){ setMode('add'); }
+
 function setMode(mode){
   if((mode==='delete' && deleteMode)||(mode==='add' && addMode)){ deleteMode=addMode=false; }
   else{ deleteMode=addMode=false; if(mode==='delete') deleteMode=true; if(mode==='add') addMode=true; }
@@ -724,6 +842,7 @@ function setMode(mode){
 
 // --- シャッフル ---
 function shuffleWords(){
+  if(filteredWords.length===0) return;
   filteredWords.sort(()=>Math.random()-0.5);
   filterShuffles[currentFilter] = [...filteredWords];
   filterIndexes[currentFilter] = 0;
@@ -738,7 +857,7 @@ function restoreOrder(){
   filterShuffles[currentFilter]=[];
   filterIndexes[currentFilter]=0;
   showingAnswer=false;
-  applyFilter(); // 元の順序で再生成
+  applyFilter();
 }
 
 // --- リセット ---
